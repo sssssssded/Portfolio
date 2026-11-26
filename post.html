@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blog</title>
+  <script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html#about"><span class="logo-mark" data-logo-mark>P</span><span data-logo-text>Portfolio</span></a>
+      <nav class="tabs" aria-label="메인 메뉴">
+        <a class="tab" data-tab="about" href="index.html#about">소개</a>
+        <a class="tab" data-tab="portfolio" href="index.html#portfolio">포트폴리오</a>
+        <a class="tab" data-tab="blog" href="index.html#blog">블로그</a>
+        <a class="tab" data-tab="contact" href="index.html#contact">연락처</a>
+      </nav>
+      <button class="theme-toggle" type="button" aria-label="라이트/다크 모드 전환"></button>
+    </div>
+  </header>
+
+  <!-- ?id=글id 를 보고 data/posts.js + posts/글id.md 에서 채워짐 -->
+  <main class="container" id="post-root">
+    <p class="empty">글을 불러오는 중…</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p data-footer></p>
+      <div class="footer-links">
+        <a href="#" data-admin-link>관리자</a>
+        <a href="#" class="to-top">맨 위로 ↑</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="data/profile.js"></script>
+  <script src="data/posts.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/post.js"></script>
+</body>
+</html>
