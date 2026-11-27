@@ -35,6 +35,13 @@ Portfolio/
    └─ videos/          # 직접 넣는 영상 (mp4)
 ```
 
+## 서버 켜기 / 끄기
+
+- 켜기: `powershell -ExecutionPolicy Bypass -File serve.ps1`
+  (이전에 켜 둔 서버가 포트를 잡고 있으면 자동으로 끄고 다시 켭니다)
+- 끄기: 서버 창에서 `Ctrl+C` 또는 창 닫기 → 포트가 바로 풀립니다
+- 어디서 켰는지 모를 때 전부 끄기: `powershell -ExecutionPolicy Bypass -File stop-server.ps1`
+
 ## 관리자 페이지 (추천)
 
 사이트의 모든 내용(소개 · 포트폴리오 · 블로그 · 연락처)을 화면에서 입력 · 수정 · 삭제할 수 있습니다.

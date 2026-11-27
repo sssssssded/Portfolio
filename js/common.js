@@ -138,6 +138,12 @@ window.Site = (function () {
     else if (s.html) window.open(URL.createObjectURL(new Blob([s.html], { type: "text/html" })), "_blank");
   }
 
+  // 영상 경로가 업로드 파일인지 유튜브인지 자동 판별
+  function isVideoFile(src) {
+    src = String(src || "");
+    return /\.(mp4|m4v|webm|ogg)(\?|#|$)/i.test(src) || /^(assets\/|\.\.\/assets\/|blob:|data:video)/.test(src);
+  }
+
   // ---------- 이미지 크게 보기 ----------
   function lightbox(items, start) {
     if (!items || !items.length) return;
@@ -318,7 +324,7 @@ window.Site = (function () {
   return {
     icon: icon, esc: esc, fmtDate: fmtDate, param: param, gradient: gradient,
     copyText: copyText, initPage: initPage, initTheme: initTheme, setActiveTab: setActiveTab, tagsHtml: tagsHtml,
-    youtubeId: youtubeId, lightbox: lightbox,
+    youtubeId: youtubeId, isVideoFile: isVideoFile, lightbox: lightbox,
     hasDemo: hasDemo, mountDemo: mountDemo, openDemo: openDemo,
     isAdmin: isAdmin, setAdminAuth: setAdminAuth, openAdminLogin: openAdminLogin
   };

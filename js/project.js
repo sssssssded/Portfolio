@@ -272,12 +272,11 @@
   // =========================================================
   function renderVideo(v) {
     if (!v || !v.src) return '<div class="video-placeholder"><span>▶</span>영상 준비 중</div>';
-    if (v.type === "youtube") {
+    if (!S.isVideoFile(v.src)) {
       return '<iframe src="https://www.youtube-nocookie.com/embed/' + esc(S.youtubeId(v.src)) + '" title="' + esc(v.title || p.title) +
         '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
     }
-    return '<video controls preload="metadata"' + (v.poster ? ' poster="' + esc(v.poster) + '"' : "") +
-      '><source src="' + esc(v.src) + '" type="video/mp4"></video>';
+    return '<video controls playsinline preload="metadata" src="' + esc(v.src) + '"' + (v.poster ? ' poster="' + esc(v.poster) + '"' : "") + "></video>";
   }
 
   // 템플릿 문자열의 앞뒤 빈 줄과 공통 들여쓰기 제거

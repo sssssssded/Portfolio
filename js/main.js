@@ -27,6 +27,13 @@
       p.hidden = p.dataset.panel !== tab;
     });
     S.setActiveTab(tab);
+    // 광고 캐러셀은 소개 탭에서만
+    const car = document.getElementById("ad-carousel");
+    if (car) {
+      car.hidden = tab !== "about";
+      if (car.hidden) car.querySelectorAll("video").forEach(function (v) { v.pause(); });
+      else { const v = car.querySelector(".ad-slide.is-active video") || (car.querySelectorAll(".ad-slide").length === 1 && car.querySelector("video")); if (v) v.play().catch(function () {}); }
+    }
     document.title = TABS[tab] + " | " + (P.name || "Portfolio");
     if (!initial) window.scrollTo({ top: 0 });
   }
@@ -47,6 +54,9 @@
 
     let html = "";
 
+    // 메인 문구 위 광고 캐러셀 (한 화면에 1개, 좌우 버튼으로 넘김)
+    const ads = (P.ads || []).filter(function (a) { return adHasContent(a) || S.isAdmin(); });
+    if (ads.length) html += '<div class="ad-carousel" id="ad-carousel" role="region" aria-roledescription="carousel" aria-label="광고" tabindex="0"></div>';
     html += '<div class="about-hero">';
     html += '<div class="avatar">' + avatar + "</div>";
     html += '<p class="eyebrow">' + esc(P.name) + (P.role ? " · " + esc(P.role) : "") + "</p>";
@@ -119,6 +129,167 @@
     }
 
     el.innerHTML = html;
+
+    const car = document.getElementById("ad-carousel");
+    if (car) {
+      // 좌우 끝까지 쓰도록 본문 컨테이너 밖(헤더 바로 아래)으로 옮김
+      document.querySelector("main").before(car);
+      buildCarousel(car, ads);
+    }
+  }
+
+  // =========================================================
+  // 광고 캐러셀
+  //   type "image" : 이미지 + 제목/설명 + 링크
+  //   type "video" : 유튜브(videoType "youtube") 또는 mp4(videoType "file")
+  //   type "html"  : 광고 코드(애드센스 등)
+  // =========================================================
+  function adHasContent(a) {
+    if (!a) return false;
+    if (a.type === "html") return !!(a.html || "").trim();
+    if (a.type === "video") return !!a.video;
+    return !!a.image;
+  }
+
+  function slideHtml(a) {
+    if (!adHasContent(a)) {
+      return '<div class="ad-media ad-empty"><p><strong>광고 영역</strong>' +
+        "<small>관리자 › 소개 › 메인 광고에서 채우세요. 방문자에게는 보이지 않습니다.</small></p></div>";
+    }
+    if (a.type === "html") return '<div class="ad-media ad-code"></div>';
+
+    let media;
+    if (a.type === "video") {
+      // 자동 재생은 보이는 슬라이드에서만 (activate 에서 처리). 브라우저 정책상 음소거로 시작
+      media = S.isVideoFile(a.video)
+        ? '<video src="' + esc(a.video) + '" controls muted playsinline preload="metadata"' + (a.image ? ' poster="' + esc(a.image) + '"' : "") + "></video>"
+        : '<iframe data-yt="' + esc(S.youtubeId(a.video)) + '" src="https://www.youtube-nocookie.com/embed/' + esc(S.youtubeId(a.video)) + '?rel=0&playsinline=1" title="' + esc(a.title || "광고 영상") +
+          '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+    } else {
+      media = '<img src="' + esc(a.image) + '" alt="' + esc(a.alt || a.title || "광고") + '" loading="lazy" draggable="false">';
+    }
+
+    const caption = (a.title || a.desc)
+      ? '<div class="ad-caption">' + (a.title ? "<strong>" + esc(a.title) + "</strong>" : "") + (a.desc ? "<span>" + esc(a.desc) + "</span>" : "") +
+        (a.url && a.type === "video" ? '<a class="ad-more" href="' + esc(a.url) + '" target="_blank" rel="noopener sponsored">자세히 보기 →</a>' : "") + "</div>"
+      : "";
+
+    // 이미지 광고는 화면 전체가 링크, 영상은 재생을 위해 링크를 캡션 버튼으로
+    if (a.type !== "video" && a.url) {
+      return '<a class="ad-media" href="' + esc(a.url) + '" target="_blank" rel="noopener sponsored">' + media + caption + "</a>";
+    }
+    return '<div class="ad-media' + (a.type === "video" ? " is-video" : "") + (caption ? " has-caption" : "") + '">' + media + caption + "</div>";
+  }
+
+  function runAdCode(box, code) {
+    box.innerHTML = code;
+    // innerHTML 로 넣은 <script> 는 실행되지 않으므로 다시 만들어 실행
+    box.querySelectorAll("script").forEach(function (old) {
+      const s = document.createElement("script");
+      Array.prototype.forEach.call(old.attributes, function (at) { s.setAttribute(at.name, at.value); });
+      s.text = old.textContent;
+      old.replaceWith(s);
+    });
+  }
+
+  function buildCarousel(root, ads) {
+    const many = ads.length > 1;
+    root.innerHTML =
+      '<div class="ad-track">' + ads.map(function (a, i) {
+        return '<div class="ad-slide" role="group" aria-roledescription="slide" aria-label="' + (i + 1) + " / " + ads.length + '">' + slideHtml(a) + "</div>";
+      }).join("") + "</div>" +
+      '<span class="ad-label">' + esc(P.adsLabel || "AD") + "</span>" +
+      (many
+        // 하단 버튼: 누르면 그 광고로 이동 + 영상은 처음부터 재생 (제목이 있으면 제목 표시)
+        ? '<div class="ad-dots' + (ads.some(function (a) { return a.title; }) ? " has-titles" : "") + '">' + ads.map(function (a, i) {
+            return '<button type="button" class="ad-dot" aria-label="' + esc(a.title || (i + 1) + "번 광고") + ' 처음부터 보기">' +
+              (a.title ? "<span>" + esc(a.title) + "</span>" : "") + "</button>";
+          }).join("") + "</div>"
+        : "");
+
+    root.querySelectorAll(".ad-code").forEach(function (box, k) {
+      const codeAds = ads.filter(function (a) { return a.type === "html" && adHasContent(a); });
+      runAdCode(box, codeAds[k].html);
+    });
+
+    const slides = root.querySelectorAll(".ad-slide");
+
+    // 보이는 슬라이드의 영상은 자동 재생(음소거), 안 보이는 건 정지
+    function ytSrc(id, play) {
+      return "https://www.youtube-nocookie.com/embed/" + id + "?rel=0&playsinline=1" +
+        (play ? "&autoplay=1&mute=1&loop=1&playlist=" + id : "");
+    }
+    function activate(slide) {
+      const v = slide.querySelector("video");
+      if (v) {
+        v.muted = true;
+        try { v.currentTime = 0; } catch (e) { /* 아직 불러오기 전이면 무시 */ }
+        const p = v.play();
+        if (p && p.catch) p.catch(function () { /* 자동 재생이 막히면 재생 버튼으로 */ });
+      }
+      const f = slide.querySelector("iframe[data-yt]");
+      if (f) f.src = ytSrc(f.dataset.yt, true);
+    }
+    function stopMedia(slide) {
+      const v = slide.querySelector("video");
+      if (v) v.pause();
+      const f = slide.querySelector("iframe[data-yt]");
+      if (f) f.src = ytSrc(f.dataset.yt, false);
+    }
+
+    if (!many) { activate(slides[0]); return; }
+
+    const track = root.querySelector(".ad-track");
+    const dots = root.querySelectorAll(".ad-dot");
+    const DELAY = (parseInt(P.adsInterval, 10) || 5) * 1000;
+    let index = 0, timer = 0, hover = false;
+
+    // 업로드한 영상 광고는 끝나면 다음 광고로
+    slides.forEach(function (s) {
+      const v = s.querySelector("video");
+      if (v) v.addEventListener("ended", function () { if (slides[index] === s) go(index + 1); });
+    });
+
+    function go(i) {
+      stopMedia(slides[index]);
+      index = (i + ads.length) % ads.length;
+      slides.forEach(function (s, k) { s.classList.toggle("is-active", k === index); });
+      activate(slides[index]);
+      track.style.transform = "translateX(" + (-index * 100) + "%)";
+      dots.forEach(function (d, k) { d.classList.toggle("active", k === index); d.setAttribute("aria-current", k === index ? "true" : "false"); });
+      restart();
+    }
+
+    // 자동 넘김: 마우스를 올렸거나 영상 광고가 보이는 동안은 멈춤
+    function restart() {
+      clearInterval(timer);
+      if (hover || ads[index].type === "video") return;
+      timer = setInterval(function () { if (!document.hidden) go(index + 1); }, DELAY);
+    }
+
+    dots.forEach(function (d, k) { d.addEventListener("click", function () { go(k); }); });
+    root.addEventListener("mouseenter", function () { hover = true; clearInterval(timer); });
+    root.addEventListener("mouseleave", function () { hover = false; restart(); });
+    root.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") go(index - 1);
+      else if (e.key === "ArrowRight") go(index + 1);
+    });
+
+    // 손가락으로 좌우 밀기
+    let startX = null, moved = false;
+    root.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "mouse" || e.target.closest(".ad-dot")) return;
+      startX = e.clientX; moved = false;
+    });
+    root.addEventListener("pointerup", function (e) {
+      if (startX == null) return;
+      const dx = e.clientX - startX;
+      startX = null;
+      if (Math.abs(dx) > 40) { moved = true; go(index + (dx < 0 ? 1 : -1)); }
+    });
+    root.addEventListener("click", function (e) { if (moved) { e.preventDefault(); moved = false; } }, true);
+
+    go(0);
   }
 
   // =========================================================

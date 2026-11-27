@@ -29,7 +29,7 @@
 
   function normalize() {
     const p = state.profile;
-    ["stats", "about", "skills", "history", "contacts"].forEach(function (k) { if (!Array.isArray(p[k])) p[k] = []; });
+    ["stats", "about", "skills", "history", "contacts", "ads"].forEach(function (k) { if (!Array.isArray(p[k])) p[k] = []; });
     p.skills.forEach(function (g) { if (!Array.isArray(g.items)) g.items = []; });
     p.history.forEach(function (g) { if (!Array.isArray(g.items)) g.items = []; });
     state.projects.forEach(normalizeProject);
@@ -114,12 +114,27 @@
   function deleteFile(path) {
     return api("/api/delete?path=" + encodeURIComponent(path), { method: "POST" });
   }
-  function uploadFile(file) {
+  // 업로드 (onProgress(퍼센트) 로 진행률 전달 — 큰 영상용)
+  function uploadFile(file, onProgress) {
     if (!serverOk) return Promise.reject(new Error("저장 서버에 연결되어 있지 않습니다."));
     let name = file.name || "image.png";
     if (!/\.[a-z0-9]+$/i.test(name)) name += "." + ((file.type.split("/")[1] || "png").replace("jpeg", "jpg"));
-    return api("/api/upload?name=" + encodeURIComponent(name), { method: "POST", body: file })
-      .then(function (d) { return d.path; });
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/upload?name=" + encodeURIComponent(name));
+      xhr.setRequestHeader("X-Admin", "1");
+      xhr.upload.onprogress = function (e) {
+        if (onProgress && e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+      };
+      xhr.onload = function () {
+        let d = null;
+        try { d = JSON.parse(xhr.responseText); } catch (e) { /* ignore */ }
+        if (xhr.status >= 200 && xhr.status < 300 && d && d.ok) resolve(d.path);
+        else reject(new Error((d && d.error) || "HTTP " + xhr.status));
+      };
+      xhr.onerror = function () { reject(new Error("서버에 연결할 수 없습니다.")); };
+      xhr.send(file);
+    });
   }
 
   function ping() {
@@ -294,6 +309,17 @@
           field("프로필 사진", upload(p, "photo", { accept: "image/*" }), "비우면 이름 첫 글자가 표시됩니다."),
           field("이력서 PDF", upload(p, "resume", { accept: "application/pdf,.pdf" }), "비우면 이력서 버튼이 숨겨집니다."))
       ),
+      card("메인 광고",
+        hintP("소개 탭 맨 위에 한 화면 크게, 좌우 버튼으로 넘기는 캐러셀로 표시됩니다. 순서는 아래 목록 순서입니다. 비어 있는 광고는 방문자에게 보이지 않습니다."),
+        grid(2,
+          field("광고 표시 문구", text(p, "adsLabel", { placeholder: "AD" })),
+          field("자동 넘김 간격 (초)", text(p, "adsInterval", { type: "number", placeholder: "5" }), "영상 광고가 보이는 동안과 마우스를 올린 동안은 멈춥니다.")),
+        list(p.ads, adItem,
+          function () { return { type: "image", title: "", desc: "", image: "", url: "", alt: "" }; },
+          {
+            title: function (a, i) { return "광고 " + (i + 1) + "  ·  " + ({ image: "이미지", video: "영상", html: "코드" }[a.type] || "") + (a.title ? "  ·  " + a.title : ""); },
+            addLabel: "광고 추가", confirm: "이 광고를 삭제할까요?"
+          })),
       card("About me",
         field("문단", area(p, "about", {
           rows: 6,
@@ -338,6 +364,35 @@
         field("블로그 탭 문구", text(p, "blogIntro")),
         field("푸터 문구", text(p, "footer")))
     );
+  }
+
+  function adItem(a) {
+    const box = h("div");
+    function draw() {
+      const prev = ctx;
+      ctx = "profile";
+      box.innerHTML = "";
+      box.append(field("종류", select(a, "type", [["image", "이미지 광고"], ["video", "영상 광고 (유튜브 / mp4)"], ["html", "광고 코드 (애드센스 등)"]], { onChange: draw })));
+      if (a.type === "html") {
+        box.append(field("광고 코드", area(a, "html", { rows: 6, mono: true, placeholder: "<script async src=...></script>\n<ins class=\"adsbygoogle\" ...></ins>\n<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>" }),
+          "광고 서비스에서 받은 코드를 그대로 붙여넣으세요. 코드 광고는 실제 사이트에서만 표시될 수 있습니다."));
+      } else if (a.type === "video") {
+        delete a.videoType;   // 주소/파일을 보고 자동 판별
+        box.append(
+          field("영상", videoInput(a, "video"), VIDEO_HINT),
+          field("대표 이미지 (선택)", upload(a, "image"), "업로드한 영상이 재생 전에 보여줄 이미지"),
+          grid(2, field("제목 (선택)", text(a, "title", { placeholder: "광고 제목" })), field("설명 (선택)", text(a, "desc", { placeholder: "한 줄 설명" }))),
+          field("‘자세히 보기’ 링크 (선택)", text(a, "url", { placeholder: "https://" })));
+      } else {
+        box.append(
+          field("이미지", upload(a, "image"), "16:9 비율(예: 1280×720)을 권장합니다. 한 화면 크게 보입니다."),
+          grid(2, field("제목 (선택)", text(a, "title", { placeholder: "광고 제목" })), field("설명 (선택)", text(a, "desc", { placeholder: "한 줄 설명" }))),
+          grid(2, field("클릭하면 이동할 주소", text(a, "url", { placeholder: "https://" })), field("이미지 대체 문구", text(a, "alt", { placeholder: "광고 이미지 설명" }))));
+      }
+      ctx = prev;
+    }
+    draw();
+    return box;
   }
 
   // ---------------------------------------------------------
@@ -603,36 +658,72 @@
   }
 
   function videosEditor(pr) {
-    return list(pr.videos,
+    const box = list(pr.videos,
       function (vd) {
-        const srcBox = h("div");
-        function drawSrc() {
-          const prev = ctx;
-          ctx = "projects";
-          srcBox.innerHTML = "";
-          if (vd.type === "file") {
-            srcBox.append(field("영상 파일", upload(vd, "src", { accept: "video/mp4,video/webm" }),
-              "mp4 권장. GitHub 는 파일 하나당 100MB 까지만 올릴 수 있습니다."));
-          } else {
-            srcBox.append(field("유튜브 주소 또는 ID", text(vd, "src", {
-              placeholder: "https://youtu.be/...",
-              onChange: function (el) { vd.src = S.youtubeId(el.value); el.value = vd.src; touch("projects"); }
-            }), "주소를 붙여넣으면 영상 ID만 자동으로 남깁니다."));
-          }
-          ctx = prev;
-        }
-        drawSrc();
+        delete vd.type;   // 종류는 주소/파일을 보고 자동 판별
         return [
-          grid(2,
-            field("영상 제목", text(vd, "title", { placeholder: "플레이 영상" })),
-            field("종류", select(vd, "type", [["youtube", "YouTube"], ["file", "영상 파일 업로드"]], {
-              onChange: function () { vd.src = ""; drawSrc(); }
-            }))),
-          srcBox
+          field("영상 제목", text(vd, "title", { placeholder: "플레이 영상" })),
+          field("영상", videoInput(vd, "src"), VIDEO_HINT),
+          field("대표 이미지 (선택)", upload(vd, "poster"), "업로드한 영상이 재생 전에 보여줄 이미지")
         ];
       },
-      function () { return { title: "", type: "youtube", src: "" }; },
-      { title: function (vd, i) { return vd.title || "영상 " + (i + 1); }, addLabel: "영상 추가", empty: "아직 영상이 없습니다." });
+      function () { return { title: "", src: "", poster: "" }; },
+      { title: function (vd, i) { return vd.title || "영상 " + (i + 1); }, addLabel: "빈 영상 칸 추가 (유튜브 주소용)", empty: "아직 영상이 없습니다." });
+    const drop = videoDrop(pr.videos, function (path, name) { return { title: name, src: path, poster: "" }; }, function () { box.redraw(); });
+    return [drop, box];
+  }
+
+  const VIDEO_HINT = "유튜브 주소를 붙여넣거나, ‘업로드’로 영상 파일(mp4)을 바로 올리세요. GitHub는 파일 하나당 100MB까지입니다.";
+
+  // 유튜브 주소 또는 영상 파일 업로드 — 한 칸에서 둘 다
+  function videoInput(obj, key) {
+    const file = ctx;
+    return upload(obj, key, {
+      accept: "video/mp4,video/webm,video/x-m4v,.mp4,.m4v,.webm",
+      placeholder: "유튜브 주소 붙여넣기 또는 업로드 →",
+      onChange: function (el) {
+        if (el.value && !S.isVideoFile(el.value)) {
+          obj[key] = S.youtubeId(el.value);
+          el.value = obj[key];
+          touch(file);
+          el.dispatchEvent(new Event("input"));
+        }
+      }
+    });
+  }
+
+  // 영상 여러 개를 한 번에 끌어다 놓아 올리기
+  function videoDrop(arr, make, redraw) {
+    const file = ctx;
+    const picker = h("input", { type: "file", accept: "video/mp4,video/webm,video/x-m4v,.mp4,.m4v,.webm", multiple: true, hidden: true });
+    const status = h("span", { class: "hint" });
+    async function addFiles(files) {
+      files = Array.prototype.filter.call(files || [], function (f) { return /^video\//.test(f.type) || /\.(mp4|m4v|webm)$/i.test(f.name); });
+      for (let k = 0; k < files.length; k++) {
+        try {
+          const path = await uploadFile(files[k], function (pct) {
+            status.textContent = "업로드 중… " + (k + 1) + " / " + files.length + "  (" + pct + "%)";
+          });
+          arr.push(make(path, files[k].name.replace(/\.[^.]+$/, "")));
+          touch(file);
+          redraw();
+        } catch (e) {
+          toast("영상 업로드 실패: " + e.message, "error");
+          break;
+        }
+      }
+      status.textContent = "";
+    }
+    picker.addEventListener("change", function () { const fs = Array.prototype.slice.call(picker.files); picker.value = ""; addFiles(fs); });
+    const drop = h("div", { class: "dropzone", onclick: function () { picker.click(); } },
+      h("span", { html: S.icon("video", 24) }),
+      h("strong", { text: "영상 파일 올리기" }),
+      h("span", { class: "hint", text: "클릭해서 고르거나 mp4 파일을 끌어다 놓으세요 (여러 개 가능)" }),
+      status);
+    drop.addEventListener("dragover", function (e) { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", function () { drop.classList.remove("over"); });
+    drop.addEventListener("drop", function (e) { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
+    return [picker, drop];
   }
 
   function imagesEditor(pr) {
@@ -1115,7 +1206,7 @@
     o = o || {};
     const file = ctx;
     const preview = h("div", { class: "upload-preview" });
-    const input = text(obj, key, { placeholder: "업로드하거나 경로/URL 입력", onInput: paint });
+    const input = text(obj, key, { placeholder: o.placeholder || "업로드하거나 경로/URL 입력", onInput: paint, onChange: o.onChange });
     const picker = h("input", { type: "file", accept: o.accept || "image/*", hidden: true });
     const btn = h("button", { type: "button", class: "btn btn-sm", text: "업로드", onclick: function () { picker.click(); } });
 
@@ -1125,7 +1216,7 @@
       if (!f) return;
       btn.disabled = true;
       btn.textContent = "업로드 중…";
-      uploadFile(f).then(function (path) {
+      uploadFile(f, function (pct) { btn.textContent = "업로드 중… " + pct + "%"; }).then(function (path) {
         obj[key] = path;
         input.value = path;
         touch(file);
@@ -1142,11 +1233,14 @@
       const v = obj[key];
       preview.innerHTML = "";
       if (!v) return;
-      if (/\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(v) || /^https?:/.test(v) && !/\.(mp4|webm|pdf)$/i.test(v)) {
+      if (/\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(v) || /^https?:/.test(v) && !/\.(mp4|m4v|webm|pdf)$/i.test(v)) {
         const img = h("img", { src: url(v), alt: "" });
         img.addEventListener("error", function () { img.remove(); });
         preview.append(img);
-      } else if (/\.(mp4|webm)$/i.test(v)) {
+      } else if (/^[\w-]{11}$/.test(v)) {
+        // 유튜브 영상 ID → 썸네일 미리보기
+        preview.append(h("img", { src: "https://i.ytimg.com/vi/" + v + "/mqdefault.jpg", alt: "유튜브 썸네일" }));
+      } else if (/\.(mp4|m4v|webm)$/i.test(v)) {
         preview.append(h("video", { src: url(v), controls: true, preload: "metadata" }));
       } else if (/\.pdf$/i.test(v)) {
         preview.append(h("a", { href: url(v), target: "_blank", rel: "noopener", text: "PDF 열어 보기 ↗" }));

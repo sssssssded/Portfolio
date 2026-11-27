@@ -361,6 +361,185 @@ main { min-height: 60vh; }
    ========================================================= */
 .about-hero { padding: 24px 0 8px; max-width: 760px; }
 
+/* 메인 문구 위 광고 캐러셀 (한 화면에 1개, 좌우 버튼) */
+/* 화면 좌우 끝까지 꽉 채움 (본문 컨테이너 밖, 헤더 바로 아래) */
+.ad-carousel {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #0B0C0F;
+  touch-action: pan-y;
+}
+.ad-carousel .ad-media { aspect-ratio: auto; height: min(56.25vw, 72vh); min-height: 220px; }
+.ad-carousel .ad-code { height: auto; }
+.ad-carousel .ad-media video { object-fit: cover; }   /* 업로드 영상도 좌우 꽉 채움 (위아래 일부 잘릴 수 있음) */
+.ad-carousel .ad-caption { padding-left: max(24px, calc(50% - 516px)); padding-right: max(24px, calc(50% - 516px)); }
+.ad-carousel .ad-prev { left: max(14px, calc(50% - 600px)); }
+.ad-carousel .ad-next { right: max(14px, calc(50% - 600px)); }
+.ad-carousel .ad-label { right: max(12px, calc(50% - 600px)); }
+.ad-carousel:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ad-track { display: flex; transition: transform .45s var(--ease); }
+.ad-slide { flex: 0 0 100%; min-width: 0; }
+.ad-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  color: #fff;
+}
+.ad-media:hover { color: #fff; }
+.ad-media img, .ad-media video, .ad-media iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+.ad-media video { object-fit: contain; background: #000; }
+a.ad-media img { transition: transform .6s var(--ease); }
+a.ad-media:hover img { transform: scale(1.03); }
+
+.ad-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 48px 24px 40px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .72));
+  pointer-events: none;
+}
+.ad-caption strong { font-size: clamp(17px, 2.6vw, 22px); font-weight: 700; letter-spacing: -0.02em; }
+.ad-caption span { color: rgba(255, 255, 255, .82); font-size: 14px; }
+.ad-more { align-self: flex-start; margin-top: 8px; color: #fff; font-size: 13.5px; font-weight: 600; pointer-events: auto; }
+.ad-more:hover { color: #fff; text-decoration: underline; }
+/* 영상은 유튜브 제목·컨트롤과 겹치지 않도록 제목을 영상 아래 띠로 */
+.ad-media.is-video.has-caption iframe,
+.ad-media.is-video.has-caption video { height: calc(100% - 64px); }
+.ad-media.is-video .ad-caption {
+  top: auto;
+  height: 64px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  padding: 0 96px 0 20px;
+  background: #111317;
+  pointer-events: auto;
+}
+.ad-media.is-video .ad-caption strong { font-size: 16px; }
+.ad-media.is-video .ad-caption span { font-size: 13px; }
+.ad-media.is-video .ad-more { margin: 0 0 0 auto; }
+.ad-media.is-video ~ .ad-dots, .ad-carousel .ad-dots { bottom: 14px; }
+
+.ad-code { aspect-ratio: auto; min-height: 120px; padding: 16px; background: var(--surface); color: var(--text); }
+
+.ad-media.ad-empty {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(-45deg, var(--surface) 0 10px, var(--surface-2) 10px 11px);
+  color: var(--muted);
+  text-align: center;
+}
+.ad-empty p { padding: 16px; }
+.ad-empty strong { display: block; color: var(--text-2); font-size: 16px; }
+.ad-empty small { font-size: 13px; }
+
+.ad-label {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  pointer-events: none;
+}
+
+.ad-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0 0 4px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .88);
+  color: #18181B;
+  font-size: 30px;
+  line-height: 1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background .18s var(--ease), transform .18s var(--ease);
+}
+.ad-nav:hover { background: #fff; transform: translateY(-50%) scale(1.06); }
+.ad-prev { left: 14px; }
+.ad-next { right: 14px; }
+
+.ad-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+.ad-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .5);
+  cursor: pointer;
+  transition: width .25s var(--ease), background .25s var(--ease);
+}
+.ad-dot.active { width: 24px; background: #fff; }
+
+/* 제목이 있는 광고: 영상 아래 띠에 버튼으로 (누르면 그 광고를 처음부터) */
+.ad-dots.has-titles {
+  position: static;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #0B0C0F;
+  transform: none;
+}
+.ad-dots.has-titles .ad-dot {
+  width: auto;
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: transparent;
+  color: rgba(255, 255, 255, .75);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: all .2s var(--ease);
+}
+.ad-dots.has-titles .ad-dot:hover { border-color: rgba(255, 255, 255, .5); color: #fff; }
+.ad-dots.has-titles .ad-dot.active { width: auto; background: #fff; border-color: #fff; color: #111; }
+
+@media (max-width: 600px) {
+  .ad-nav { width: 38px; height: 38px; font-size: 24px; }
+  .ad-prev { left: 8px; }
+  .ad-next { right: 8px; }
+  .ad-caption { padding: 36px 16px 34px; }
+}
+
 .avatar {
   display: grid;
   place-items: center;
